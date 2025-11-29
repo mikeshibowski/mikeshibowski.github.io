@@ -87,22 +87,6 @@ body {
     color: var(--text-primary);
 }
 
-.back-link {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    color: var(--text-secondary);
-    text-decoration: none;
-    font-family: 'Courier New', monospace;
-    font-size: 14px;
-    transition: color 0.3s ease;
-    z-index: 100;
-}
-
-.back-link:hover {
-    color: var(--ring-color);
-}
-
 body {
     min-height: 100vh;
     display: flex;
