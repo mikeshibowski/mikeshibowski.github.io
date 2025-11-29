@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="blue">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADHD Clock | Mike Shibowski</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <a href="../" class="back-link">&lt; Back</a>
+
+    <div class="container">
+        <div class="clock">
+            <svg class="clock-svg" viewBox="0 0 200 200">
+                <!-- Ring 1 (Outer) - 5 segments (Hours) -->
+                <g class="ring ring-hour">
+                    <circle class="segment segment-1" cx="100" cy="100" />
+                    <circle class="segment segment-2" cx="100" cy="100" />
+                    <circle class="segment segment-3" cx="100" cy="100" />
+                    <circle class="segment segment-4" cx="100" cy="100" />
+                    <circle class="segment segment-5" cx="100" cy="100" />
+                </g>
+
+                <!-- Ring 2 - 5 segments (Parts) -->
+                <g class="ring ring-part">
+                    <circle class="segment segment-1" cx="100" cy="100" />
+                    <circle class="segment segment-2" cx="100" cy="100" />
+                    <circle class="segment segment-3" cx="100" cy="100" />
+                    <circle class="segment segment-4" cx="100" cy="100" />
+                    <circle class="segment segment-5" cx="100" cy="100" />
+                </g>
+
+                <!-- Ring 3 (Inner) - Continuous progress -->
+                <g class="ring ring-progress">
+                    <circle class="segment-bg" cx="100" cy="100" />
+                    <circle class="segment-fill" cx="100" cy="100" />
+                </g>
+            </svg>
+
+            <!-- Center Display (clickable for focus) -->
+            <div class="center-display" id="center-display" role="button" tabindex="0" aria-label="Toggle Focus">
+                <div class="time-display">
+                    <span class="bhp-time">--</span>
+                </div>
+                <div class="focus-task-text" id="focus-task-text"></div>
+            </div>
+
+            <!-- Focus Task Input (overlay popup) -->
+            <div class="focus-input-container hidden" id="focus-input-container">
+                <input type="text" id="focus-task-input" placeholder="What are you focusing on?" maxlength="100">
+                <div class="focus-input-actions">
+                    <button id="focus-start-btn" class="focus-action-btn start">Start</button>
+                    <button id="focus-cancel-btn" class="focus-action-btn cancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="control-header">
+                <button class="settings-toggle" aria-label="Settings">
+                    <svg viewBox="0 0 24 24" width="24" height="24">
+                        <path fill="currentColor" d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="settings-panel hidden">
+                <h3>Settings</h3>
+                <div class="setting-group">
+                    <label for="bedtime-input">Bedtime (24h format)</label>
+                    <input type="time" id="bedtime-input" value="23:00">
+                </div>
+                <div class="setting-group">
+                    <label for="endpoint-input">Focus Endpoint URL</label>
+                    <input type="url" id="endpoint-input" placeholder="http://localhost:3000">
+                </div>
+                <div class="setting-group">
+                    <label for="token-input">Access Token</label>
+                    <input type="password" id="token-input" placeholder="Bearer token (optional)">
+                </div>
+                <div class="setting-group">
+                    <button id="test-endpoint" class="btn-test">Test Endpoint</button>
+                    <span class="test-result hidden" id="test-result"></span>
+                </div>
+                <div class="setting-group">
+                    <label>Theme</label>
+                    <div class="theme-selector">
+                        <button class="theme-btn" data-theme="blue" title="Serene Blue">
+                            <span class="theme-preview" style="background: #7eb5d6;"></span>
+                        </button>
+                        <button class="theme-btn" data-theme="yellow" title="Cheerful Yellow">
+                            <span class="theme-preview" style="background: #e8d47a;"></span>
+                        </button>
+                        <button class="theme-btn" data-theme="green" title="Natural Green">
+                            <span class="theme-preview" style="background: #7dc4a0;"></span>
+                        </button>
+                        <button class="theme-btn" data-theme="peach" title="Cozy Peach">
+                            <span class="theme-preview" style="background: #e8a890;"></span>
+                        </button>
+                        <button class="theme-btn" data-theme="violet" title="Reflective Violet">
+                            <span class="theme-preview" style="background: #b8a0d4;"></span>
+                        </button>
+                    </div>
+                </div>
+                <button id="save-settings" class="btn-save">Save Settings</button>
+                <div class="save-feedback hidden">Saved!</div>
+            </div>
+        </div>
+
+        <!-- Schedule Overview -->
+        <div class="schedule-overview">
+            <div class="schedule-item" data-phase="setup">
+                <span class="schedule-label">Set Up</span>
+                <span class="schedule-time setup-time"></span>
+            </div>
+            <div class="schedule-item" data-phase="block1">
+                <span class="schedule-label">Block 1</span>
+                <span class="schedule-time block1-time"></span>
+            </div>
+            <div class="schedule-item" data-phase="block2">
+                <span class="schedule-label">Block 2</span>
+                <span class="schedule-time block2-time"></span>
+            </div>
+            <div class="schedule-item" data-phase="block3">
+                <span class="schedule-label">Block 3</span>
+                <span class="schedule-time block3-time"></span>
+            </div>
+            <div class="schedule-item" data-phase="winddown">
+                <span class="schedule-label">Wind Down</span>
+                <span class="schedule-time winddown-time"></span>
+            </div>
+            <div class="schedule-item" data-phase="sleep">
+                <span class="schedule-label">Sleep</span>
+                <span class="schedule-time sleep-time"></span>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mike Shibowski</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Fira Code', monospace;
+            background: #0d0d0d;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .name {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .tagline {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 50px;
+        }
+
+        .projects {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .project-link {
+            display: block;
+            padding: 16px 20px;
+            background: #161616;
+            border-left: 2px solid #333;
+            text-decoration: none;
+            color: #e0e0e0;
+            transition: border-color 0.2s;
+        }
+
+        .project-link:hover {
+            border-color: #00ff88;
+        }
+
+        .project-name {
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+
+        .project-desc {
+            font-size: 0.8rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="name">Mike Shibowski</h1>
+        <p class="tagline">ML developer, digital artist</p>
+
+        <div class="projects">
+            <a href="./adhdclock/" class="project-link">
+                <div class="project-name">adhdclock</div>
+                <div class="project-desc">Visual time management tool</div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
