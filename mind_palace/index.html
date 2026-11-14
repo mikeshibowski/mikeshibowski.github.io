@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mind Palace</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="vendor/d3-dispatch.min.js"></script>
+<script src="vendor/d3-quadtree.min.js"></script>
+<script src="vendor/d3-timer.min.js"></script>
+<script src="vendor/d3-force.min.js"></script>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<div id="vignette"></div>
+
+<p id="hint">hold anywhere to add a thought</p>
+
+<div id="press-ring" hidden>
+  <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="18"/></svg>
+</div>
+
+<div id="capture" hidden>
+  <input id="capture-input" autocomplete="off" spellcheck="false" aria-label="New item">
+  <div id="capture-meta">
+    <span id="capture-kind"></span>
+    <button id="capture-lang" class="lang" hidden title="Dictation language — click to switch"></button>
+  </div>
+</div>
+
+<aside id="drawer" aria-hidden="true">
+  <button id="d-close" class="ghost close" aria-label="Close">&times;</button>
+  <div id="d-kind" class="seg">
+    <button data-kind="task">task</button>
+    <button data-kind="question">question</button>
+    <button data-kind="thought">thought</button>
+    <button data-kind="artifact">artifact</button>
+  </div>
+  <textarea id="d-title" rows="1" placeholder="Title" spellcheck="false"></textarea>
+  <textarea id="d-notes" rows="3" placeholder="Notes"></textarea>
+  <div class="row">
+    <span class="label">importance</span>
+    <div id="d-imp" class="dots">
+      <button data-i="4" title="low"></button>
+      <button data-i="3" title="medium"></button>
+      <button data-i="2" title="high"></button>
+      <button data-i="1" title="highest"></button>
+    </div>
+  </div>
+  <div id="d-focus" class="focus-only">
+    <div class="row">
+      <span class="label">focus</span>
+      <span id="d-clock" class="clock"></span>
+    </div>
+    <div class="actions">
+      <button id="d-focus-go">Focus</button>
+      <button id="d-focus-stop" class="ghost">Stop</button>
+      <span id="d-focus-total" class="meta"></span>
+    </div>
+  </div>
+  <div class="actions">
+    <button id="d-done" class="task-only">Done</button>
+    <button id="d-pin" class="ghost">Pin</button>
+    <button id="d-unlink" class="ghost">Disconnect</button>
+    <button id="d-delete" class="ghost danger">Delete</button>
+  </div>
+  <p id="d-meta" class="meta"></p>
+</aside>
+
+<input id="canvas-name" autocomplete="off" spellcheck="false" aria-label="Canvas name" title="Name this canvas">
+<button id="focus-chip" class="ghost" hidden></button>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
