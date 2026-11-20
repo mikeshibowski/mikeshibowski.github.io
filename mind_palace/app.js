@@ -3,7 +3,7 @@ import { Renderer, MARK_RR, LOOK_DEFAULTS } from "./render.js";
 import { Drawer } from "./drawer.js";
 import { taskStates, taskLine } from "./tasks.js";
 import { paletteFor, currentHour, applyPalette, canvasAccent, scheduledTheme, nextSwitch, toHex } from "./palette.js";
-import { parseCapture, KINDS } from "./parse.js";
+import { parseCapture, parseList, KINDS } from "./parse.js";
 import { Dictation, voiceSupported, voiceLanguages, loadLang, saveLang } from "./voice.js";
 import { WARP, WARP_CALM, warpState } from "./wormhole.js";
 import { Focus, canFocus, elapsed, remaining, progress, clock } from "./focus.js";
@@ -146,6 +146,17 @@ const api = {
   }),
   unlink: later((id) => change((s) => s.removeEdgesOf(id))),
   createCanvas: later((name, pos) => change((s) => s.createCanvas(name, here, pos))),
+  // A whole list (the ≡ box) in one save; no positions, they spread out
+  // from the field's middle and the forces settle them.
+  createMany: later((entries) => {
+    storage.persist();
+    return change((s) => {
+      for (const { kind, title, importance } of entries) {
+        if (kind === "wormhole") s.createCanvas(title, here, null);
+        else s.create(kind, title, { importance, canvas: here });
+      }
+    });
+  }),
   renameCanvas: later((id, name) => change((s) => s.renameCanvas(id, name))),
   edge: later((a, b) => change((s) => s.addEdge(a, b))),
   unedge: later((id) => change((s) => s.removeEdge(id))),
@@ -784,7 +795,7 @@ function setupVoice(configured) {
   voiceLangs = voiceLanguages(configured);
   voiceLang = loadLang(voiceLangs);
   langButton.hidden = !voiceSupported;
-  langButton.textContent = voiceLang.slice(0, 2).toUpperCase();
+  showLang();
   if (voiceSupported) $("hint").textContent = "hold anywhere to add a thought · keep holding to speak";
 }
 
@@ -797,11 +808,18 @@ function startListening() {
 
 // Keep focus in the input while switching, or the blur handler would save.
 langButton.addEventListener("pointerdown", (e) => e.preventDefault());
-langButton.addEventListener("click", () => {
+langButton.addEventListener("click", nextLang);
+
+// The capture's and the list box's language tags are one setting.
+function showLang() {
+  for (const b of document.querySelectorAll("button.lang")) b.textContent = voiceLang.slice(0, 2).toUpperCase();
+}
+
+function nextLang() {
   voiceLang = voiceLangs[(voiceLangs.indexOf(voiceLang) + 1) % voiceLangs.length];
   saveLang(voiceLang);
-  langButton.textContent = voiceLang.slice(0, 2).toUpperCase();
-});
+  showLang();
+}
 
 function openCapture(p) {
   capture.pos = p;
@@ -1474,6 +1492,7 @@ function setupTuning() {
 
   toggle.addEventListener("click", () => {
     panel.hidden = !panel.hidden;
+    if (!panel.hidden) closeBulk?.(); // one panel at a time, they share the corner
   });
   document.body.append(toggle, panel);
 }
@@ -1576,6 +1595,157 @@ function setupMemory() {
   document.body.append(button);
 }
 
+// ≡ (top left) opens a box for a whole list at once: one item per line, in
+// the capture syntax, typed, pasted or spoken (each pause a new line).
+// Ctrl+Enter adds them all. Closing it adds nothing, but the draft stays
+// for next time: typed words are never lost.
+const BULK_DRAFT_KEY = "mindPalace.bulkDraft";
+let closeBulk = null;
+
+function setupBulk() {
+  const label = "Add a list";
+  const button = Object.assign(document.createElement("button"), {
+    id: "bulk-toggle", className: "ghost", textContent: "≡", title: label,
+  });
+  button.setAttribute("aria-label", label);
+  const panel = Object.assign(document.createElement("div"), { id: "bulk", hidden: true });
+  const box = Object.assign(document.createElement("textarea"), {
+    rows: 8,
+    spellcheck: false,
+    placeholder: "one per line\nt task · ? question · a: artifact · !1 important",
+  });
+  box.setAttribute("aria-label", "Items, one per line");
+  const status = Object.assign(document.createElement("span"), { className: "bulk-status" });
+  const mic = Object.assign(document.createElement("button"), {
+    className: "ghost bulk-mic", type: "button", textContent: "speak", title: "Dictate: each pause starts a new line",
+  });
+  const lang = Object.assign(document.createElement("button"), {
+    className: "lang", type: "button", title: "Dictation language — click to switch",
+  });
+  const add = Object.assign(document.createElement("button"), { type: "button", textContent: "Add" });
+  const cancel = Object.assign(document.createElement("button"), { className: "ghost", type: "button", textContent: "Close" });
+  const meta = Object.assign(document.createElement("div"), { className: "bulk-meta" });
+  const actions = Object.assign(document.createElement("div"), { className: "bulk-actions" });
+  actions.append(mic, lang, add, cancel);
+  meta.append(status);
+  panel.append(box, meta, actions);
+
+  let cycle = 0; // Tab steps the kind of every plain line, as in capture
+  let base = ""; // what was there before dictation started
+
+  const saveDraft = () => {
+    try {
+      if (box.value.trim()) localStorage.setItem(BULK_DRAFT_KEY, box.value);
+      else localStorage.removeItem(BULK_DRAFT_KEY);
+    } catch {}
+  };
+
+  const showCount = () => {
+    if (dictation.listening) return;
+    status.className = "bulk-status";
+    const entries = parseList(box.value, cycle);
+    if (!entries.length) {
+      status.textContent = "Ctrl+Enter adds · Tab steps the kind";
+      return;
+    }
+    const counts = new Map();
+    for (const e of entries) counts.set(e.kind, (counts.get(e.kind) ?? 0) + 1);
+    const kinds = [...counts].map(([k, n]) => `${n} ${n === 1 ? k : k + "s"}`).join(", ");
+    status.textContent = `${kinds} · Ctrl+Enter adds`;
+  };
+
+  const dictation = new Dictation({
+    onText(final, interim, phrases) {
+      const lines = [...phrases];
+      if (interim.trim()) lines.push(interim.trim());
+      box.value = base + lines.join("\n");
+      box.classList.toggle("interim", Boolean(interim.trim()));
+      box.scrollTop = box.scrollHeight;
+    },
+    onEnd(error) {
+      box.classList.remove("interim");
+      mic.classList.remove("on");
+      mic.textContent = "speak";
+      saveDraft();
+      showCount();
+      if (error) {
+        status.className = "bulk-status error";
+        status.textContent = error;
+      }
+      if (!panel.hidden) box.focus();
+    },
+  });
+
+  const open = () => {
+    if (drawer.isOpen) drawer.close();
+    $("tune").hidden = true;
+    try {
+      box.value = localStorage.getItem(BULK_DRAFT_KEY) ?? "";
+    } catch {}
+    cycle = 0;
+    mic.hidden = lang.hidden = !voiceSupported;
+    showLang();
+    panel.hidden = false;
+    showCount();
+    box.focus();
+    box.setSelectionRange(box.value.length, box.value.length);
+  };
+  closeBulk = () => {
+    if (panel.hidden) return;
+    dictation.stop();
+    saveDraft();
+    panel.hidden = true;
+    box.blur();
+    kick(); // the swell was frozen while typing
+  };
+  const submit = () => {
+    dictation.stop();
+    const entries = parseList(box.value, cycle);
+    if (!entries.length) return;
+    box.value = "";
+    saveDraft();
+    closeBulk();
+    api.createMany(entries);
+  };
+
+  button.addEventListener("click", () => (panel.hidden ? open() : closeBulk()));
+  cancel.addEventListener("click", closeBulk);
+  add.addEventListener("click", submit);
+  lang.addEventListener("click", nextLang);
+  mic.addEventListener("click", () => {
+    if (dictation.listening) {
+      dictation.stop();
+      return;
+    }
+    // Spoken lines go after what is there, each on its own line.
+    base = box.value.replace(/\s+$/, "");
+    if (base) base += "\n";
+    mic.classList.add("on");
+    mic.textContent = "stop";
+    status.className = "bulk-status listening";
+    status.textContent = "listening… each pause is a new line";
+    dictation.start(voiceLang);
+  });
+  box.addEventListener("input", () => {
+    saveDraft();
+    showCount();
+  });
+  box.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      submit();
+    } else if (e.key === "Escape") {
+      e.stopPropagation();
+      closeBulk();
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      cycle += e.shiftKey ? KINDS.length - 1 : 1;
+      showCount();
+    }
+  });
+  document.body.append(button, panel);
+}
+
 // ⤓ (top left) downloads everything, every canvas, as one markdown file
 // and then empties the canvases (their names and doors stay). It can't be
 // undone, so it arms first, like the card's Delete.
@@ -1649,6 +1819,7 @@ updateField();
 setupTuning();
 setupTheme();
 setupMemory();
+setupBulk();
 setupExport();
 reducedMotion.addEventListener?.("change", kick);
 window.addEventListener("resize", () => {

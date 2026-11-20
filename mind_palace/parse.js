@@ -39,3 +39,17 @@ export function parseCapture(text, cycle = 0) {
   });
   return { kind, title: title.replace(/\s+/g, " ").trim(), importance };
 }
+
+// A list, one item per line (the ≡ box): each line in the syntax above.
+// A leading bullet ("- ", "* ", "• ", "1. ", "1) ") is dropped, so pasted
+// lists work; "[]" is left alone, it means task.
+export function parseList(text, cycle = 0) {
+  const out = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim().replace(/^([-*•]|\d+[.)])(\s+|$)/, "");
+    if (!line) continue;
+    const entry = parseCapture(line, cycle);
+    if (entry.title || entry.kind === "wormhole") out.push(entry);
+  }
+  return out;
+}

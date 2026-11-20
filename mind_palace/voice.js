@@ -15,7 +15,9 @@ const ERRORS = {
 };
 
 export class Dictation {
-  // onText(finalText, interimText) while listening; onEnd(errorMessage | null) once.
+  // onText(finalText, interimText, phrases) while listening; onEnd(errorMessage | null) once.
+  // phrases: each finalised result on its own; continuous recognition
+  // finalises one at each pause, so the list box puts them on separate lines.
   constructor({ onText, onEnd }) {
     this.onText = onText;
     this.onEnd = onEnd;
@@ -37,11 +39,15 @@ export class Dictation {
     rec.onresult = (e) => {
       let final = "";
       let interim = "";
+      const phrases = [];
       for (const result of e.results) {
-        if (result.isFinal) final += result[0].transcript;
-        else interim += result[0].transcript;
+        if (result.isFinal) {
+          final += result[0].transcript;
+          const phrase = result[0].transcript.trim();
+          if (phrase) phrases.push(phrase);
+        } else interim += result[0].transcript;
       }
-      this.onText(final, interim);
+      this.onText(final, interim, phrases);
     };
     rec.onerror = (e) => {
       error = ERRORS[e.error] ?? null; // "no-speech" and "aborted" are not worth a message

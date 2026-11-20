@@ -398,10 +398,23 @@ textarea::placeholder, input::placeholder { color: var(--faint); }
 }
 #memory-toggle:hover { color: var(--muted); }
 #memory-toggle.on { color: rgba(var(--accent-rgb), 0.8); }
-#export-toggle {
+#bulk-toggle {
   position: fixed;
   top: 12px;
   left: 140px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-color: transparent;
+  color: var(--faint);
+  font-size: 16px;
+  line-height: 1;
+}
+#bulk-toggle:hover { color: var(--muted); }
+#export-toggle {
+  position: fixed;
+  top: 12px;
+  left: 172px;
   min-width: 30px;
   height: 30px;
   padding: 0;
@@ -413,6 +426,42 @@ textarea::placeholder, input::placeholder { color: var(--faint); }
 #export-toggle:hover { color: var(--muted); }
 /* Armed: the next click exports and clears. */
 #export-toggle.armed { padding: 0 8px; font-size: 12px; color: var(--danger); border-color: var(--danger-line); }
+/* ---- list box (≡ button, top left) ---- */
+
+#bulk {
+  position: fixed;
+  top: 48px;
+  left: 12px;
+  width: 340px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  color: var(--muted);
+  font-size: 12px;
+  display: grid;
+  gap: 8px;
+}
+#bulk[hidden] { display: none; }
+#bulk textarea {
+  font: 500 14px/1.5 var(--font);
+  min-height: 150px;
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  resize: vertical;
+  caret-color: var(--accent);
+}
+#bulk textarea.interim { color: var(--muted); }
+#bulk .bulk-status { color: var(--faint); font-size: 11px; letter-spacing: 0.03em; }
+#bulk .bulk-status.listening { color: rgba(var(--accent-rgb), 0.85); }
+#bulk .bulk-status.error { color: rgba(224, 121, 74, 0.9); }
+#bulk .bulk-actions { display: flex; align-items: center; gap: 6px; }
+#bulk .bulk-actions .lang { margin-right: auto; }
+#bulk .bulk-mic.on { color: rgba(var(--accent-rgb), 0.9); border-color: rgba(var(--accent-rgb), 0.35); }
+#bulk .bulk-mic[hidden], #bulk .lang[hidden] { display: none; }
+
 #tune {
   position: fixed;
   top: 48px;
