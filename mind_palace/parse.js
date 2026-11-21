@@ -40,16 +40,36 @@ export function parseCapture(text, cycle = 0) {
   return { kind, title: title.replace(/\s+/g, " ").trim(), importance };
 }
 
-// A list, one item per line (the ≡ box): each line in the syntax above.
-// A leading bullet ("- ", "* ", "• ", "1. ", "1) ") is dropped, so pasted
-// lists work; "[]" is left alone, it means task.
-export function parseList(text, cycle = 0) {
+// A list, one item per line (the ≡ box). No syntax here: a line's text is
+// its title, and its kind is picked with Tab on that line (kinds[i], by
+// line number). A line not set yet is a thought, or a question if it ends
+// in "?". A leading bullet ("- ", "* ", "• ", "1. ", "1) ") is dropped, so
+// pasted lists work.
+export const listLine = (raw) => raw.trim().replace(/^([-*•]|\d+[.)])(\s+|$)/, "").replace(/\s+/g, " ");
+
+export const lineKind = (raw, kind = null) => kind ?? (/\?\s*$/.test(raw) ? "question" : "thought");
+
+export function parseList(text, kinds = []) {
   const out = [];
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim().replace(/^([-*•]|\d+[.)])(\s+|$)/, "");
-    if (!line) continue;
-    const entry = parseCapture(line, cycle);
-    if (entry.title || entry.kind === "wormhole") out.push(entry);
-  }
+  text.split(/\r?\n/).forEach((raw, i) => {
+    const title = listLine(raw);
+    if (title) out.push({ kind: lineKind(raw, kinds[i]), title, importance: 4 });
+  });
+  return out;
+}
+
+// After an edit, each line keeps the kind it had: the lines before and
+// after the edited stretch are matched up, and the edited stretch keeps
+// its kinds line by line (a new line starts unset).
+export function followKinds(before, after, kinds) {
+  let head = 0;
+  while (head < before.length && head < after.length && before[head] === after[head]) head++;
+  let tail = 0;
+  while (tail < before.length - head && tail < after.length - head &&
+    before[before.length - 1 - tail] === after[after.length - 1 - tail]) tail++;
+  const out = kinds.slice(0, head);
+  const was = before.length - head - tail;
+  for (let i = 0; i < after.length - head - tail; i++) out.push(i < was ? kinds[head + i] ?? null : null);
+  for (let i = before.length - tail; i < before.length; i++) out.push(kinds[i] ?? null);
   return out;
 }

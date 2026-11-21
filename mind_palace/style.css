@@ -445,13 +445,38 @@ textarea::placeholder, input::placeholder { color: var(--faint); }
   gap: 8px;
 }
 #bulk[hidden] { display: none; }
+#bulk .bulk-field { position: relative; overflow: hidden; }
 #bulk textarea {
   font: 500 14px/1.5 var(--font);
   min-height: 150px;
   max-height: calc(100vh - 180px);
   overflow-y: auto;
   resize: vertical;
+  padding-left: 64px;
   caret-color: var(--accent);
+}
+/* Each line's kind, in a gutter beside it; the caret's line in the accent. */
+#bulk .bulk-gutter { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+#bulk .bulk-gutter span {
+  position: absolute;
+  left: 0;
+  width: 56px;
+  text-align: right;
+  color: var(--faint);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  line-height: 21px; /* the textarea's line: 14px * 1.5 */
+}
+#bulk .bulk-gutter span.here { color: rgba(var(--accent-rgb), 0.85); }
+#bulk .bulk-mirror {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  box-sizing: border-box;
+  pointer-events: none;
 }
 #bulk textarea.interim { color: var(--muted); }
 #bulk .bulk-status { color: var(--faint); font-size: 11px; letter-spacing: 0.03em; }

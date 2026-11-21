@@ -3,7 +3,7 @@ import { Renderer, MARK_RR, LOOK_DEFAULTS } from "./render.js";
 import { Drawer } from "./drawer.js";
 import { taskStates, taskLine } from "./tasks.js";
 import { paletteFor, currentHour, applyPalette, canvasAccent, scheduledTheme, nextSwitch, toHex } from "./palette.js";
-import { parseCapture, parseList, KINDS } from "./parse.js";
+import { parseCapture, parseList, listLine, lineKind, followKinds, KINDS } from "./parse.js";
 import { Dictation, voiceSupported, voiceLanguages, loadLang, saveLang } from "./voice.js";
 import { WARP, WARP_CALM, warpState } from "./wormhole.js";
 import { Focus, canFocus, elapsed, remaining, progress, clock } from "./focus.js";
@@ -1595,10 +1595,11 @@ function setupMemory() {
   document.body.append(button);
 }
 
-// ≡ (top left) opens a box for a whole list at once: one item per line, in
-// the capture syntax, typed, pasted or spoken (each pause a new line).
-// Ctrl+Enter adds them all. Closing it adds nothing, but the draft stays
-// for next time: typed words are never lost.
+// ≡ (top left) opens a box for a whole list at once: one item per line,
+// typed, pasted or spoken (each pause a new line). No syntax: each line's
+// kind shows beside it, and Tab steps the kind of the line the caret is
+// on. Ctrl+Enter adds them all. Closing it adds nothing, but the draft
+// stays for next time: typed words are never lost.
 const BULK_DRAFT_KEY = "mindPalace.bulkDraft";
 let closeBulk = null;
 
@@ -1609,12 +1610,20 @@ function setupBulk() {
   });
   button.setAttribute("aria-label", label);
   const panel = Object.assign(document.createElement("div"), { id: "bulk", hidden: true });
+  const field = Object.assign(document.createElement("div"), { className: "bulk-field" });
   const box = Object.assign(document.createElement("textarea"), {
     rows: 8,
     spellcheck: false,
-    placeholder: "one per line\nt task · ? question · a: artifact · !1 important",
+    placeholder: "one per line",
   });
   box.setAttribute("aria-label", "Items, one per line");
+  // The kinds sit in a gutter, each beside its line; a hidden copy of the
+  // text, wrapped the same way, says where each line starts.
+  const gutter = Object.assign(document.createElement("div"), { className: "bulk-gutter" });
+  gutter.setAttribute("aria-hidden", "true");
+  const mirror = Object.assign(document.createElement("div"), { className: "bulk-mirror" });
+  mirror.setAttribute("aria-hidden", "true");
+  field.append(gutter, box, mirror);
   const status = Object.assign(document.createElement("span"), { className: "bulk-status" });
   const mic = Object.assign(document.createElement("button"), {
     className: "ghost bulk-mic", type: "button", textContent: "speak", title: "Dictate: each pause starts a new line",
@@ -1628,67 +1637,110 @@ function setupBulk() {
   const actions = Object.assign(document.createElement("div"), { className: "bulk-actions" });
   actions.append(mic, lang, add, cancel);
   meta.append(status);
-  panel.append(box, meta, actions);
+  panel.append(field, meta, actions);
 
-  let cycle = 0; // Tab steps the kind of every plain line, as in capture
+  let lines = [""]; // the text as last seen, by line
+  let kinds = []; // the kind Tab picked for each line; null: not picked
   let base = ""; // what was there before dictation started
+
+  // Each line keeps its kind through an edit (parse.js followKinds).
+  const sync = () => {
+    const now = box.value.split("\n");
+    kinds = followKinds(lines, now, kinds);
+    lines = now;
+  };
+  const caretLine = () => box.value.slice(0, box.selectionStart).split("\n").length - 1;
 
   const saveDraft = () => {
     try {
-      if (box.value.trim()) localStorage.setItem(BULK_DRAFT_KEY, box.value);
+      if (box.value.trim()) localStorage.setItem(BULK_DRAFT_KEY, JSON.stringify({ text: box.value, kinds }));
       else localStorage.removeItem(BULK_DRAFT_KEY);
     } catch {}
   };
+  const loadDraft = () => {
+    let draft = null;
+    try {
+      draft = JSON.parse(localStorage.getItem(BULK_DRAFT_KEY));
+    } catch {}
+    box.value = typeof draft?.text === "string" ? draft.text : "";
+    lines = box.value.split("\n");
+    kinds = Array.isArray(draft?.kinds) ? draft.kinds.map((k) => (KINDS.includes(k) ? k : null)) : [];
+  };
+
+  const showGutter = () => {
+    if (panel.hidden) return;
+    const css = getComputedStyle(box);
+    Object.assign(mirror.style, {
+      width: box.clientWidth + "px", font: css.font, lineHeight: css.lineHeight, padding: css.padding,
+    });
+    mirror.replaceChildren(...lines.map((l) => Object.assign(document.createElement("div"), { textContent: l || "​" })));
+    const at = caretLine();
+    const marks = [];
+    lines.forEach((raw, i) => {
+      if (!listLine(raw) && i !== at) return;
+      const row = mirror.children[i];
+      const top = box.offsetTop + row.offsetTop - box.scrollTop;
+      if (top < box.offsetTop - 4 || top > box.offsetTop + box.clientHeight - 8) return; // scrolled out
+      const mark = Object.assign(document.createElement("span"), { textContent: lineKind(raw, kinds[i]) });
+      mark.className = i === at ? "here" : "";
+      mark.style.top = top + "px";
+      marks.push(mark);
+    });
+    gutter.replaceChildren(...marks);
+  };
 
   const showCount = () => {
+    showGutter();
     if (dictation.listening) return;
     status.className = "bulk-status";
-    const entries = parseList(box.value, cycle);
+    const entries = parseList(box.value, kinds);
     if (!entries.length) {
-      status.textContent = "Ctrl+Enter adds · Tab steps the kind";
+      status.textContent = "Tab changes a line's kind · Ctrl+Enter adds";
       return;
     }
     const counts = new Map();
     for (const e of entries) counts.set(e.kind, (counts.get(e.kind) ?? 0) + 1);
-    const kinds = [...counts].map(([k, n]) => `${n} ${n === 1 ? k : k + "s"}`).join(", ");
-    status.textContent = `${kinds} · Ctrl+Enter adds`;
+    const summary = [...counts].map(([k, n]) => `${n} ${n === 1 ? k : k + "s"}`).join(", ");
+    status.textContent = `${summary} · Ctrl+Enter adds`;
   };
 
   const dictation = new Dictation({
     onText(final, interim, phrases) {
-      const lines = [...phrases];
-      if (interim.trim()) lines.push(interim.trim());
-      box.value = base + lines.join("\n");
+      const spoken = [...phrases];
+      if (interim.trim()) spoken.push(interim.trim());
+      box.value = base + spoken.join("\n");
+      sync();
       box.classList.toggle("interim", Boolean(interim.trim()));
       box.scrollTop = box.scrollHeight;
+      showGutter();
     },
     onEnd(error) {
       box.classList.remove("interim");
       mic.classList.remove("on");
       mic.textContent = "speak";
       saveDraft();
+      if (!panel.hidden) {
+        box.focus();
+        box.setSelectionRange(box.value.length, box.value.length);
+      }
       showCount();
       if (error) {
         status.className = "bulk-status error";
         status.textContent = error;
       }
-      if (!panel.hidden) box.focus();
     },
   });
 
   const open = () => {
     if (drawer.isOpen) drawer.close();
     $("tune").hidden = true;
-    try {
-      box.value = localStorage.getItem(BULK_DRAFT_KEY) ?? "";
-    } catch {}
-    cycle = 0;
+    loadDraft();
     mic.hidden = lang.hidden = !voiceSupported;
     showLang();
     panel.hidden = false;
-    showCount();
     box.focus();
     box.setSelectionRange(box.value.length, box.value.length);
+    showCount();
   };
   closeBulk = () => {
     if (panel.hidden) return;
@@ -1700,9 +1752,11 @@ function setupBulk() {
   };
   const submit = () => {
     dictation.stop();
-    const entries = parseList(box.value, cycle);
+    const entries = parseList(box.value, kinds);
     if (!entries.length) return;
     box.value = "";
+    lines = [""];
+    kinds = [];
     saveDraft();
     closeBulk();
     api.createMany(entries);
@@ -1727,9 +1781,16 @@ function setupBulk() {
     dictation.start(voiceLang);
   });
   box.addEventListener("input", () => {
+    sync();
     saveDraft();
     showCount();
   });
+  box.addEventListener("scroll", showGutter);
+  // The caret's line is the one Tab changes, so its kind stands out.
+  document.addEventListener("selectionchange", () => {
+    if (document.activeElement === box) showGutter();
+  });
+  window.addEventListener("resize", showGutter);
   box.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
@@ -1739,7 +1800,11 @@ function setupBulk() {
       closeBulk();
     } else if (e.key === "Tab") {
       e.preventDefault();
-      cycle += e.shiftKey ? KINDS.length - 1 : 1;
+      if (dictation.listening) return;
+      const i = caretLine();
+      const step = e.shiftKey ? KINDS.length - 1 : 1;
+      kinds[i] = KINDS[(KINDS.indexOf(lineKind(lines[i], kinds[i])) + step) % KINDS.length];
+      saveDraft();
       showCount();
     }
   });
